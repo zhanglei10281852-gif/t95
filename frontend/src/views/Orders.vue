@@ -152,41 +152,52 @@
     <a-modal
       v-model:open="orderModalVisible"
       title="新建订单"
-      width="500px"
+      width="800px"
       @ok="handleSubmitOrder"
       @cancel="orderModalVisible = false"
       :confirm-loading="submitLoading"
+      :mask-closable="false"
     >
       <a-form :model="orderForm" layout="vertical">
-        <a-form-item
-          label="选择老人"
-          :rules="[{ required: true, message: '请选择老人' }]"
-        >
-          <a-select
-            v-model:value="orderForm.elderlyId"
-            placeholder="请选择老人"
-            show-search
-            :filter-option="filterOption"
-          >
-            <a-select-option
-              v-for="e in elderlyList"
-              :key="e._id"
-              :value="e._id"
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item
+              label="选择老人"
+              :rules="[{ required: true, message: '请选择老人' }]"
             >
-              {{ e.name }} ({{ e.age }}岁, {{ e.community }})
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item
-          label="助餐点"
-          :rules="[{ required: true, message: '请选择助餐点' }]"
-        >
-          <a-select v-model:value="orderForm.canteenId" placeholder="请选择助餐点">
-            <a-select-option v-for="c in canteenList" :key="c._id" :value="c._id">
-              {{ c.name }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
+              <a-select
+                v-model:value="orderForm.elderlyId"
+                placeholder="请选择老人"
+                show-search
+                :filter-option="filterOption"
+              >
+                <a-select-option
+                  v-for="e in elderlyList"
+                  :key="e._id"
+                  :value="e._id"
+                >
+                  {{ e.name }} ({{ e.age }}岁, {{ e.community }})
+                </a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item
+              label="助餐点"
+              :rules="[{ required: true, message: '请选择助餐点' }]"
+            >
+              <a-select
+                v-model:value="orderForm.canteenId"
+                placeholder="请选择助餐点"
+                @change="loadMenu"
+              >
+                <a-select-option v-for="c in canteenList" :key="c._id" :value="c._id">
+                  {{ c.name }}
+                </a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item
@@ -197,6 +208,7 @@
                 v-model:value="orderForm.mealDate"
                 style="width: 100%"
                 :disabled-date="disabledDate"
+                @change="loadMenu"
               />
             </a-form-item>
           </a-col>
@@ -205,23 +217,86 @@
               label="餐次"
               :rules="[{ required: true, message: '请选择餐次' }]"
             >
-              <a-select v-model:value="orderForm.mealType" placeholder="请选择">
+              <a-select
+                v-model:value="orderForm.mealType"
+                placeholder="请选择"
+                @change="loadMenu"
+              >
                 <a-select-option value="lunch">午餐</a-select-option>
                 <a-select-option value="dinner">晚餐</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
         </a-row>
-        <a-form-item
-          label="餐标"
-          :rules="[{ required: true, message: '请选择餐标' }]"
-        >
-          <a-radio-group v-model:value="orderForm.mealStandard">
-            <a-radio value="A">A餐 - ¥12</a-radio>
-            <a-radio value="B">B餐 - ¥15</a-radio>
-            <a-radio value="C">C餐 - ¥18</a-radio>
+        <a-form-item label="点餐方式">
+          <a-radio-group v-model:value="orderForm.orderMode">
+            <a-radio value="standard">按餐标</a-radio>
+            <a-radio value="dishes">按菜品</a-radio>
           </a-radio-group>
         </a-form-item>
+
+        <div v-if="orderForm.orderMode === 'standard'">
+          <a-form-item
+            label="餐标"
+            :rules="[{ required: true, message: '请选择餐标' }]"
+          >
+            <a-radio-group v-model:value="orderForm.mealStandard">
+              <a-radio value="A">A餐 - ¥12</a-radio>
+              <a-radio value="B">B餐 - ¥15</a-radio>
+              <a-radio value="C">C餐 - ¥18</a-radio>
+            </a-radio-group>
+          </a-form-item>
+        </div>
+
+        <div v-else class="dish-selection-section">
+          <div class="section-title">
+            选择菜品
+            <span v-if="menuLoading" class="loading-text">
+              <a-spin size="small" /> 加载菜单中...
+            </span>
+          </div>
+          <div v-if="menuDishes.length === 0 && !menuLoading" class="empty-menu">
+            <a-empty description="该助餐点当日此餐次暂无菜单" />
+          </div>
+          <div v-else class="dish-grid">
+            <div
+              v-for="dish in menuDishes"
+              :key="dish.dishId"
+              class="dish-item-card"
+              :class="{ selected: isDishSelected(dish.dishId), 'is-soft': dish.isSoft }"
+              @click="toggleDish(dish)"
+            >
+              <div class="dish-name">{{ dish.dishName }}</div>
+              <div class="dish-info">
+                <span class="dish-price">¥{{ dish.price }}</span>
+                <a-tag v-if="dish.isSoft" color="green" size="small">软质</a-tag>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="orderForm.selectedDishes.length > 0" class="selected-section">
+            <div class="selected-title">已选菜品 ({{ orderForm.selectedDishes.length }}道)</div>
+            <div class="selected-list">
+              <div
+                v-for="dish in orderForm.selectedDishes"
+                :key="dish.dishId"
+                class="selected-item"
+              >
+                <span class="selected-name">{{ dish.dishName }}</span>
+                <div class="quantity-control">
+                  <a-button size="small" @click.stop="updateDishQuantity(dish.dishId, -1)">-</a-button>
+                  <span class="quantity">{{ dish.quantity }}</span>
+                  <a-button size="small" @click.stop="updateDishQuantity(dish.dishId, 1)">+</a-button>
+                </div>
+                <span class="selected-price">¥{{ (dish.price * dish.quantity).toFixed(2) }}</span>
+                <a-button type="text" size="small" danger @click.stop="removeDish(dish.dishId)">
+                  <CloseOutlined />
+                </a-button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <a-form-item label="取餐方式">
           <a-radio-group v-model:value="orderForm.deliveryType">
             <a-radio value="pickup">到店取餐</a-radio>
@@ -232,10 +307,14 @@
           <a-textarea
             v-model:value="orderForm.remark"
             placeholder="忌口、特殊需求等"
-            :rows="3"
+            :rows="2"
           />
         </a-form-item>
       </a-form>
+      <div class="order-summary">
+        <span>合计金额：</span>
+        <span class="total-price">¥{{ totalPrice.toFixed(2) }}</span>
+      </div>
     </a-modal>
 
     <a-modal
@@ -269,6 +348,7 @@ import dayjs, { Dayjs } from 'dayjs'
 import {
   PlusOutlined,
   DownOutlined,
+  CloseOutlined,
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import {
@@ -285,6 +365,7 @@ import {
 } from '@/api/orders'
 import { getElderlyList, ElderlyItem } from '@/api/elderly'
 import { getCanteenList, CanteenItem } from '@/api/canteens'
+import { getTodayMenu, MenuDishItem, MEAL_TYPE_MAP } from '@/api/menus'
 
 const userStore = useUserStore()
 
@@ -465,9 +546,14 @@ const defaultOrderForm = {
   mealStandard: 'B' as MealStandard,
   deliveryType: 'pickup' as DeliveryType,
   remark: '',
+  orderMode: 'standard' as 'standard' | 'dishes',
+  selectedDishes: [] as { dishId: string; dishName: string; price: number; quantity: number; category: string; isSoft: boolean }[],
 }
 
 const orderForm = reactive({ ...defaultOrderForm })
+
+const menuDishes = ref<MenuDishItem[]>([])
+const menuLoading = ref(false)
 
 function handleAdd() {
   Object.assign(orderForm, defaultOrderForm)
@@ -482,15 +568,92 @@ function filterOption(input: string, option: any) {
   return option.children && option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
 }
 
+const totalPrice = computed(() => {
+  if (orderForm.orderMode === 'standard') {
+    const prices: Record<string, number> = { A: 12, B: 15, C: 18 }
+    return prices[orderForm.mealStandard] || 0
+  } else {
+    return orderForm.selectedDishes.reduce((sum, d) => sum + d.price * d.quantity, 0)
+  }
+})
+
+async function loadMenu() {
+  if (!orderForm.canteenId || !orderForm.mealDate || !orderForm.mealType) {
+    menuDishes.value = []
+    return
+  }
+
+  menuLoading.value = true
+  try {
+    const res = await getTodayMenu(
+      orderForm.canteenId,
+      orderForm.mealDate.format('YYYY-MM-DD')
+    )
+    if (orderForm.mealType === 'lunch') {
+      menuDishes.value = res.lunch.dishes || []
+    } else {
+      menuDishes.value = res.dinner.dishes || []
+    }
+    orderForm.selectedDishes = orderForm.selectedDishes.filter(d =>
+      menuDishes.value.some(md => md.dishId === d.dishId)
+    )
+  } catch (e) {
+    console.error(e)
+    message.warning('获取当日菜单失败，可能该助餐点未发布菜单')
+    menuDishes.value = []
+  } finally {
+    menuLoading.value = false
+  }
+}
+
+function isDishSelected(dishId: string): boolean {
+  return orderForm.selectedDishes.some(d => d.dishId === dishId)
+}
+
+function toggleDish(dish: MenuDishItem) {
+  const index = orderForm.selectedDishes.findIndex(d => d.dishId === dish.dishId)
+  if (index > -1) {
+    orderForm.selectedDishes.splice(index, 1)
+  } else {
+    orderForm.selectedDishes.push({
+      dishId: dish.dishId,
+      dishName: dish.dishName,
+      price: dish.price,
+      quantity: 1,
+      category: dish.category,
+      isSoft: dish.isSoft,
+    })
+  }
+}
+
+function updateDishQuantity(dishId: string, delta: number) {
+  const dish = orderForm.selectedDishes.find(d => d.dishId === dishId)
+  if (dish) {
+    dish.quantity = Math.max(1, dish.quantity + delta)
+  }
+}
+
+function removeDish(dishId: string) {
+  const index = orderForm.selectedDishes.findIndex(d => d.dishId === dishId)
+  if (index > -1) {
+    orderForm.selectedDishes.splice(index, 1)
+  }
+}
+
 async function handleSubmitOrder() {
-  if (!orderForm.elderlyId || !orderForm.canteenId || !orderForm.mealDate || !orderForm.mealType || !orderForm.mealStandard) {
+  if (!orderForm.elderlyId || !orderForm.canteenId || !orderForm.mealDate || !orderForm.mealType) {
     message.warning('请填写完整订单信息')
+    return
+  }
+  
+  if (orderForm.orderMode === 'dishes' && orderForm.selectedDishes.length === 0) {
+    message.warning('请选择至少一道菜品')
     return
   }
   
   submitLoading.value = true
   try {
-    await createOrder({
+    const orderData: any = {
       elderlyId: orderForm.elderlyId,
       canteenId: orderForm.canteenId,
       mealDate: orderForm.mealDate.format('YYYY-MM-DD'),
@@ -498,7 +661,16 @@ async function handleSubmitOrder() {
       mealStandard: orderForm.mealStandard,
       remark: orderForm.remark,
       deliveryType: orderForm.deliveryType,
-    })
+    }
+    
+    if (orderForm.orderMode === 'dishes' && orderForm.selectedDishes.length > 0) {
+      orderData.orderDishes = orderForm.selectedDishes.map(d => ({
+        dishId: d.dishId,
+        quantity: d.quantity,
+      }))
+    }
+    
+    await createOrder(orderData)
     message.success('订单创建成功')
     orderModalVisible.value = false
     loadData()
@@ -580,5 +752,151 @@ onMounted(() => {
 
 .page-header {
   margin-bottom: 16px;
+}
+
+.dish-selection-section {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 6px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #262626;
+  margin-bottom: 12px;
+}
+
+.loading-text {
+  margin-left: 12px;
+  font-weight: normal;
+  color: #999;
+  font-size: 12px;
+}
+
+.empty-menu {
+  padding: 24px 0;
+  text-align: center;
+}
+
+.dish-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dish-item-card {
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dish-item-card:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+}
+
+.dish-item-card.selected {
+  border-color: #1890ff;
+  background: #e6f7ff;
+}
+
+.dish-item-card.is-soft {
+  border-color: #b7eb8f;
+}
+
+.dish-item-card.is-soft.selected {
+  background: #f6ffed;
+  border-color: #52c41a;
+}
+
+.dish-item-card .dish-name {
+  font-size: 13px;
+  color: #262626;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.dish-item-card .dish-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dish-item-card .dish-price {
+  color: #fa8c16;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.selected-section {
+  border-top: 1px dashed #d9d9d9;
+  padding-top: 12px;
+}
+
+.selected-title {
+  font-size: 13px;
+  color: #595959;
+  margin-bottom: 10px;
+}
+
+.selected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.selected-name {
+  flex: 1;
+  font-size: 13px;
+  color: #262626;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantity {
+  min-width: 24px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.selected-price {
+  color: #fa8c16;
+  font-weight: 500;
+  min-width: 60px;
+  text-align: right;
+}
+
+.order-summary {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+  text-align: right;
+  font-size: 16px;
+}
+
+.total-price {
+  color: #fa8c16;
+  font-size: 20px;
+  font-weight: bold;
+  margin-left: 8px;
 }
 </style>

@@ -55,6 +55,46 @@ const routes: RouteRecordRaw[] = [
           roles: ["admin", "worker"],
         },
       },
+      {
+        path: "dishes",
+        name: "Dishes",
+        component: () => import("@/views/Dishes.vue"),
+        meta: {
+          title: "菜品库管理",
+          icon: "CoffeeOutlined",
+          roles: ["admin"],
+        },
+      },
+      {
+        path: "menu-scheduling",
+        name: "MenuScheduling",
+        component: () => import("@/views/MenuScheduling.vue"),
+        meta: {
+          title: "每周菜单排期",
+          icon: "CalendarOutlined",
+          roles: ["admin", "canteen"],
+        },
+      },
+      {
+        path: "today-menu",
+        name: "TodayMenu",
+        component: () => import("@/views/TodayMenu.vue"),
+        meta: {
+          title: "今日菜单",
+          icon: "MenuOutlined",
+          roles: ["admin", "canteen", "worker"],
+        },
+      },
+      {
+        path: "dish-analysis",
+        name: "DishAnalysis",
+        component: () => import("@/views/DishAnalysis.vue"),
+        meta: {
+          title: "菜品销量分析",
+          icon: "BarChartOutlined",
+          roles: ["admin", "canteen"],
+        },
+      },
     ],
   },
 ];

@@ -5,6 +5,15 @@ export type MealType = 'lunch' | 'dinner'
 export type MealStandard = 'A' | 'B' | 'C'
 export type DeliveryType = 'pickup' | 'delivery'
 
+export interface OrderDishItem {
+  dishId: string
+  dishName: string
+  category: string
+  price: number
+  quantity: number
+  isSoft: boolean
+}
+
 export interface OrderItem {
   _id: string
   orderNo: string
@@ -14,6 +23,7 @@ export interface OrderItem {
   mealType: MealType
   mealStandard: MealStandard
   mealPrice: number
+  orderDishes: OrderDishItem[]
   remark: string
   status: OrderStatus
   deliveryType: DeliveryType
@@ -52,6 +62,10 @@ export interface CreateOrderParams {
   mealDate: string
   mealType: MealType
   mealStandard: MealStandard
+  orderDishes?: {
+    dishId: string
+    quantity: number
+  }[]
   remark?: string
   deliveryType: DeliveryType
 }

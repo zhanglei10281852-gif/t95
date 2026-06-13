@@ -65,6 +65,10 @@ import {
   MenuUnfoldOutlined,
   DownOutlined,
   LogoutOutlined,
+  CoffeeOutlined,
+  CalendarOutlined,
+  MenuOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 
@@ -102,6 +106,30 @@ const allMenuItems = [
     icon: ShoppingCartOutlined,
     label: '订单管理',
     roles: ['admin', 'canteen', 'worker'],
+  },
+  {
+    key: '/today-menu',
+    icon: MenuOutlined,
+    label: '今日菜单',
+    roles: ['admin', 'canteen', 'worker'],
+  },
+  {
+    key: '/dishes',
+    icon: CoffeeOutlined,
+    label: '菜品库管理',
+    roles: ['admin'],
+  },
+  {
+    key: '/menu-scheduling',
+    icon: CalendarOutlined,
+    label: '每周菜单排期',
+    roles: ['admin', 'canteen'],
+  },
+  {
+    key: '/dish-analysis',
+    icon: BarChartOutlined,
+    label: '菜品销量分析',
+    roles: ['admin', 'canteen'],
   },
   {
     key: '/canteens',
