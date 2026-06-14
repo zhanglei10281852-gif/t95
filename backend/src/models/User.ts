@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import bcrypt = require("bcryptjs");
+import bcrypt from "bcryptjs";
 
 export type UserRole = "admin" | "canteen" | "worker";
 

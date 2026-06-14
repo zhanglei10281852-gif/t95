@@ -55,54 +55,54 @@
     </div>
 
     <div class="week-calendar">
-      <div class="calendar-header">
-        <div class="week-header-cell header-cell">
-          <div class="day-header-cell"></div>
-          <div v-for="day in dayList" :key="day.key" class="day-header-cell">
-            <div class="day-name">{{ day.name }}</div>
-            <div class="day-date">{{ day.date }}</div>
+      <div class="calendar-corner"></div>
+      <div v-for="day in dayList" :key="day.key" class="calendar-day-header">
+        <div class="day-name">{{ day.name }}</div>
+        <div class="day-date">{{ day.date }}</div>
+      </div>
+      <div class="meal-label-cell">午餐</div>
+      <div
+        v-for="day in dayList"
+        :key="day.key + '-lunch'"
+        class="calendar-cell"
+        @click="openDishModal(day.key, 'lunch')"
+      >
+        <div v-if="getDayDishes(day.key, 'lunch').length === 0" class="empty-hint">
+          <PlusOutlined />
+          添加菜品
+        </div>
+        <div v-else class="dish-list">
+          <div
+            v-for="dish in getDayDishes(day.key, 'lunch')"
+            :key="dish.dishId"
+            class="dish-item"
+            :class="{ 'is-soft': dish.isSoft }"
+          >
+            <span class="dish-name">{{ dish.dishName }}</span>
+            <span class="dish-price">¥{{ dish.price }}</span>
           </div>
         </div>
       </div>
-      <div class="calendar-body">
-        <div class="meal-row">
-          <div class="meal-label">午餐</div>
-          <div v-for="day in dayList" :key="day.key + '-lunch'" class="day-cell" @click="openDishModal(day.key, 'lunch')">
-            <div v-if="getDayDishes(day.key, 'lunch').length === 0" class="empty-hint">
-              <PlusOutlined />
-              添加菜品
-            </div>
-            <div v-else class="dish-list">
-              <div
-                v-for="dish in getDayDishes(day.key, 'lunch')"
-                :key="dish.dishId"
-                class="dish-item"
-                :class="{ 'is-soft': dish.isSoft }"
-              >
-                <span class="dish-name">{{ dish.dishName }}</span>
-                <span class="dish-price">¥{{ dish.price }}</span>
-              </div>
-            </div>
-          </div>
+      <div class="meal-label-cell">晚餐</div>
+      <div
+        v-for="day in dayList"
+        :key="day.key + '-dinner'"
+        class="calendar-cell"
+        @click="openDishModal(day.key, 'dinner')"
+      >
+        <div v-if="getDayDishes(day.key, 'dinner').length === 0" class="empty-hint">
+          <PlusOutlined />
+          添加菜品
         </div>
-        <div class="meal-row">
-          <div class="meal-label">晚餐</div>
-          <div v-for="day in dayList" :key="day.key + '-dinner'" class="day-cell" @click="openDishModal(day.key, 'dinner')">
-            <div v-if="getDayDishes(day.key, 'dinner').length === 0" class="empty-hint">
-              <PlusOutlined />
-              添加菜品
-            </div>
-            <div v-else class="dish-list">
-              <div
-                v-for="dish in getDayDishes(day.key, 'dinner')"
-                :key="dish.dishId"
-                class="dish-item"
-                :class="{ 'is-soft': dish.isSoft }"
-              >
-                <span class="dish-name">{{ dish.dishName }}</span>
-                <span class="dish-price">¥{{ dish.price }}</span>
-              </div>
-            </div>
+        <div v-else class="dish-list">
+          <div
+            v-for="dish in getDayDishes(day.key, 'dinner')"
+            :key="dish.dishId"
+            class="dish-item"
+            :class="{ 'is-soft': dish.isSoft }"
+          >
+            <span class="dish-name">{{ dish.dishName }}</span>
+            <span class="dish-price">¥{{ dish.price }}</span>
           </div>
         </div>
       </div>
@@ -409,10 +409,17 @@ async function handlePublish() {
     return
   }
 
+  const hasDishes = menuData.value.some(d => d.lunch.dishes.length > 0 || d.dinner.dishes.length > 0)
+  if (!hasDishes) {
+    message.warning('本周还没有排任何菜品，请先配置菜品后再发布')
+    return
+  }
+
   try {
     await publishWeeklyMenu({
       canteenId: queryForm.canteenId,
       weekDate: currentWeekDate.value.format('YYYY-MM-DD'),
+      days: menuData.value,
     })
     message.success('发布成功')
   } catch (e: any) {
@@ -440,60 +447,34 @@ onMounted(() => {
 }
 
 .week-calendar {
-  background: #fff;
+  display: grid;
+  grid-template-columns: 100px repeat(7, 1fr);
+  gap: 0;
   border: 1px solid #f0f0f0;
   border-radius: 8px;
   overflow: hidden;
+  background: #fff;
 }
 
-.calendar-header {
-  background: #fafafa;
-}
-
-.week-header-row {
-  display: flex;
-}
-
-.day-header-cell {
-  flex: 1;
-  padding: 12px;
-  text-align: center;
+.calendar-corner {
+  background: #f5f5f5;
   border-bottom: 1px solid #f0f0f0;
   border-right: 1px solid #f0f0f0;
 }
 
-.day-header-cell:last-child {
+.calendar-day-header {
+  padding: 14px 12px;
+  text-align: center;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  border-right: 1px solid #f0f0f0;
+}
+
+.calendar-day-header:last-child {
   border-right: none;
 }
 
-.day-header-cell:first-child {
-  flex: 0 0 100px;
-  background: #f5f5f5;
-}
-
-.day-name {
-  font-size: 16px;
-  font-weight: 500;
-  color: #262626;
-}
-
-.day-date {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
-}
-
-.calendar-body {
-  min-height: 300px;
-}
-
-.meal-row {
-  display: flex;
-  min-height: 120px;
-}
-
-.meal-label {
-  flex: 0 0 100px;
+.meal-label-cell {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -502,24 +483,32 @@ onMounted(() => {
   border-right: 1px solid #f0f0f0;
   border-bottom: 1px solid #f0f0f0;
   color: #595959;
+  font-size: 14px;
 }
 
-.day-cell {
-  flex: 1;
+.calendar-cell {
   padding: 12px;
   border-right: 1px solid #f0f0f0;
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
   transition: background 0.2s;
-  min-height: 120px;
+  min-height: 130px;
 }
 
-.day-cell:hover {
+.calendar-cell:hover {
   background: #f9f9f9;
 }
 
-.day-cell:last-child {
-  border-right: none;
+.day-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #262626;
+}
+
+.day-date {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
 }
 
 .empty-hint {

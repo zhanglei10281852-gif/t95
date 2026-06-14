@@ -234,32 +234,30 @@ router.post('/check-conflicts', requireRoles('admin', 'canteen'), async (req: Re
     };
 
     for (const day of days) {
-      const allDayDishes = [
-        ...day.lunch.dishes.map((d: IMenuDish) => d.dishId.toString()),
-        ...day.dinner.dishes.map((d: IMenuDish) => d.dishId.toString()),
-      ];
+      const lunchDishIds = new Set(day.lunch.dishes.map((d: IMenuDish) => d.dishId.toString()));
+      const dinnerDishIds = new Set(day.dinner.dishes.map((d: IMenuDish) => d.dishId.toString()));
 
-      const dishCount: Record<string, number> = {};
-      allDayDishes.forEach(dishId => {
-        dishCount[dishId] = (dishCount[dishId] || 0) + 1;
+      const duplicateDishIds: string[] = [];
+      lunchDishIds.forEach(dishId => {
+        if (dinnerDishIds.has(dishId)) {
+          duplicateDishIds.push(dishId);
+        }
       });
 
-      const duplicateDishes = Object.entries(dishCount)
-        .filter(([, count]) => count > 2)
-        .map(([dishId]) => {
-          const dish = [...day.lunch.dishes, ...day.dinner.dishes].find(
-            (d: IMenuDish) => d.dishId.toString() === dishId
-          );
+      const maxDuplicate = 2;
+      if (duplicateDishIds.length > maxDuplicate) {
+        const allDishes = [...day.lunch.dishes, ...day.dinner.dishes];
+        const duplicateDishNames = duplicateDishIds.map(dishId => {
+          const dish = allDishes.find((d: IMenuDish) => d.dishId.toString() === dishId);
           return dish?.dishName || '';
         });
 
-      if (duplicateDishes.length > 0) {
         warnings.push({
           type: 'duplicate',
           day: day.day,
           dayName: dayNames[day.day],
-          message: `${dayNames[day.day]}午晚餐有 ${duplicateDishes.length} 道菜品重复超过2次：${duplicateDishes.join('、')}`,
-          dishes: duplicateDishes,
+          message: `${dayNames[day.day]}午晚餐有 ${duplicateDishNames.length} 道重复菜品（超过${maxDuplicate}道）：${duplicateDishNames.join('、')}，建议调整避免老人吃腻`,
+          dishes: duplicateDishNames,
         });
       }
 
@@ -289,7 +287,7 @@ router.post('/check-conflicts', requireRoles('admin', 'canteen'), async (req: Re
 
 router.post('/publish', requireRoles('admin', 'canteen'), async (req: Request, res: Response) => {
   try {
-    const { canteenId, weekDate } = req.body;
+    const { canteenId, weekDate, days } = req.body;
 
     if (!canteenId || !weekDate) {
       return res.status(400).json({ message: '参数不完整' });
@@ -300,21 +298,34 @@ router.post('/publish', requireRoles('admin', 'canteen'), async (req: Request, r
     }
 
     const weekStart = getWeekStartDate(new Date(weekDate));
+    const weekEnd = getWeekEndDate(weekStart);
 
-    const menu = await WeeklyMenu.findOne({
+    let menu = await WeeklyMenu.findOne({
       canteenId,
       weekStartDate: weekStart,
     });
 
     if (!menu) {
-      return res.status(404).json({ message: '菜单不存在' });
+      if (!days || days.length === 0) {
+        return res.status(400).json({ message: '本周还没有排菜，请先配置菜品后再发布' });
+      }
+      menu = new WeeklyMenu({
+        canteenId,
+        weekStartDate: weekStart,
+        weekEndDate: weekEnd,
+        days,
+        status: 'draft',
+        createdBy: req.user?._id,
+      });
+    } else if (days && days.length > 0) {
+      menu.days = days;
     }
 
     menu.status = 'published';
     await menu.save();
 
     res.json(menu);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
     res.status(500).json({ message: '发布菜单失败' });
   }

@@ -539,6 +539,16 @@ async function seed() {
   let orderCount = 0;
   let subsidyTotal = 0;
 
+  const stapleDishes = dishes.filter(d => d.category === 'staple');
+  const meatDishes = dishes.filter(d => d.category === 'meat');
+  const vegetableDishes = dishes.filter(d => d.category === 'vegetable');
+  const soupDishes = dishes.filter(d => d.category === 'soup');
+
+  function pickRandom<T>(arr: T[], count: number): T[] {
+    const shuffled = [...arr].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+  }
+
   for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
     const mealDate = today.subtract(dayOffset, "day");
 
@@ -567,6 +577,29 @@ async function seed() {
       const status =
         dayOffset === 0 ? statuses[Math.floor(Math.random() * 4)] : "completed";
 
+      const selectedDishes: any[] = [];
+
+      const stapleCount = standard === 'A' ? 1 : standard === 'B' ? 1 : 2;
+      const meatCount = standard === 'A' ? 1 : standard === 'B' ? 2 : 2;
+      const vegetableCount = standard === 'A' ? 1 : standard === 'B' ? 1 : 2;
+      const soupCount = 1;
+
+      selectedDishes.push(...pickRandom(stapleDishes, stapleCount));
+      selectedDishes.push(...pickRandom(meatDishes, meatCount));
+      selectedDishes.push(...pickRandom(vegetableDishes, vegetableCount));
+      selectedDishes.push(...pickRandom(soupDishes, soupCount));
+
+      const orderDishes = selectedDishes.map(dish => ({
+        dishId: dish._id,
+        dishName: dish.name,
+        category: dish.category,
+        price: dish.price,
+        quantity: 1,
+        isSoft: dish.isSoft,
+      }));
+
+      const totalDishPrice = orderDishes.reduce((sum, d) => sum + d.price * d.quantity, 0);
+
       const order = new Order({
         orderNo: generateOrderNo(),
         elderlyId: elderly._id,
@@ -574,7 +607,8 @@ async function seed() {
         mealDate: mealDate.toDate(),
         mealType,
         mealStandard: standard,
-        mealPrice,
+        mealPrice: totalDishPrice,
+        orderDishes,
         remark: Math.random() > 0.8 ? "少盐少油" : "",
         status,
         deliveryType: Math.random() > 0.7 ? "delivery" : "pickup",

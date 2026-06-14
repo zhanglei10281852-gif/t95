@@ -91,6 +91,7 @@ export function checkMenuConflicts(days: DayMenu[]) {
 export function publishWeeklyMenu(data: {
   canteenId: string
   weekDate: string
+  days?: DayMenu[]
 }) {
   return request.post<any, WeeklyMenuData>('/menus/publish', data)
 }
